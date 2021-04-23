@@ -1,7 +1,8 @@
 import time
 import copy
 
-ADANCIME_MAX = 2
+ADANCIME_MAX = 4
+TIP_ESTIMARE = 1
 
 '''
 Jucatorul B -> Blue -> muta al doilea, are de la stanga la dreapta de facut
@@ -10,14 +11,12 @@ Jucatorul R -> Red -> muta primul, are de sus in jos
 Pentru joc : pozitia de 0 0 est in coltul stanga sus 
 
 '''
-
-
 class Joc:
     """
     Clasa care defineste jocul. Se va schimba de la un joc la altul.
     """
-    NR_COLOANE = 8
-    NR_LINII = 11
+    NR_COLOANE = 5
+    NR_LINII = 5
     JMIN = None
     JMAX = None
     GOL = '#'
@@ -105,6 +104,87 @@ class Joc:
                 l_mutari.append(Joc(copie_matr))
         return l_mutari
 
+    #imi returneaza in cate mutari castig in mod optim
+    def cate_mutari(self, jucator):
+        if jucator == 'B':
+            #stanga dreapta
+            dp = [float("inf")] * (self.NR_LINII * self.NR_COLOANE + 1)
+            #initial, pentru prima coloana
+            for lin in range(self.NR_LINII):
+                col = 0
+                poz = self.obtine_pozitie(lin, col)
+                if self.matr[poz] == 'B':
+                    dp[poz] = 0
+                elif self.matr[poz] == 'R':
+                    dp[poz] = float("inf")
+                else:
+                    dp[poz] = 1
+            for col in range(1, self.NR_COLOANE):
+                lin = 0
+                poz = self.obtine_pozitie(lin, col)
+                if self.matr[poz] == 'R':
+                    dp[poz] = float('inf')
+                else:
+                    dp[poz] = min(dp[self.obtine_pozitie(lin, col - 1)], dp[self.obtine_pozitie(lin + 1, col - 1)])
+                    if self.matr[poz] != 'B':
+                        dp[poz] += 1
+                for lin in range(1, self.NR_LINII - 1):
+                    poz = self.obtine_pozitie(lin, col)
+                    if self.matr[poz] == 'R':
+                        dp[poz] = float('inf')
+                    else:
+                        dp[poz] = min(dp[self.obtine_pozitie(lin - 1, col)], dp[self.obtine_pozitie(lin, col -1)],
+                                      dp[self.obtine_pozitie(lin + 1, col)])
+                        if self.matr[poz] != 'B':
+                            dp[poz] += 1
+                lin = self.NR_LINII - 1
+                poz = self.obtine_pozitie(lin, col)
+                if self.matr[poz] == 'R':
+                    dp[poz] = float('inf')
+                else:
+                    dp[poz] = min(dp[self.obtine_pozitie(lin-1, col)], dp[self.obtine_pozitie(lin, col -1)])
+            ans = float('inf')
+            for lin in range(self.NR_LINII):
+                col = self.NR_COLOANE - 1
+                ans = min(ans, dp[self.obtine_pozitie(lin, col)])
+            return ans
+        #pentru Red
+        else:
+            dp = [float("inf")] * (self.NR_LINII * self.NR_COLOANE + 1)
+            for col in range(self.NR_COLOANE):
+                lin = 0
+                poz = self.obtine_pozitie(lin, col)
+                if self.matr[poz] == 'R':
+                    dp[poz] = 0
+                elif self.matr[poz] =='B':
+                    dp[poz] = float('inf')
+                else:
+                    dp[poz] = 1
+            for lin in range(1, self.NR_LINII):
+                for col in range(self.NR_COLOANE - 1):
+                    poz = self.obtine_pozitie(lin, col)
+                    if self.matr[poz] == 'B':
+                        dp[poz] = 'inf'
+                    else:
+                        dp[poz] = min(dp[self.obtine_pozitie(lin - 1, col)], dp[self.obtine_pozitie(lin, col + 1)])
+                        if self.matr[poz] != 'R':
+                            dp[poz] += 1
+                col = self.NR_COLOANE - 1
+                poz = self.obtine_pozitie(lin, col)
+                if self.matr[poz] == 'B':
+                    dp[poz] = float('inf')
+                else:
+                    dp[poz] = dp[self.obtine_pozitie(lin -1, col)]
+                    if self.poz != 'R':
+                        dp[poz] += 1
+            ans = float('inf')
+            for col in range(self.NR_COLOANE):
+                lin = self.NR_LINII - 1
+                poz = self.obtine_pozitie(lin, col)
+                ans = min(ans, dp[poz])
+            return ans
+
+
 
     #calculez pe cate drumuri mai poate castiga un jucator
     def cate_drumuri(self, jucator):
@@ -155,6 +235,7 @@ class Joc:
                 poz = self.obtine_pozitie(lin, col)
                 if self.matr[poz] != 'B':
                     dp[poz] = 1
+            #calculam pentru toata matricea
             for lin in range(1, self.NR_LINII):
                 for col in range(self.NR_COLOANE - 1):
                     poz = self.obtine_pozitie(lin ,col)
@@ -167,14 +248,13 @@ class Joc:
 
                 if self.matr[poz] != 'B':
                     dp[poz] = dp[self.obtine_pozitie(lin - 1, col)]
-
+            #calculam raspunsul
             ans = 0
             for col in range(self.NR_COLOANE):
                 lin = self.NR_LINII - 1
                 poz = self.obtine_pozitie(lin, col)
                 ans += dp[poz]
             return ans
-
 
     # primul sau al doilea tip de estimare
     def estimeaza_scor(self, adancime, tip = 1):
@@ -190,6 +270,9 @@ class Joc:
             if tip == 1:
                 #primul tip de estimare
                 return (self.cate_drumuri(self.__class__.JMAX) - self.cate_drumuri(self.__class__.JMIN))
+            else:
+                return (self.cate_mutari(self.__class__.JMIN) - self.cate_mutari(self.__class__.JMAX))
+
 
     def sirAfisare(self):
         sir = "  |"
@@ -254,7 +337,7 @@ class Stare:
 def min_max(stare):
     # daca sunt la o frunza in arborele minimax sau la o stare finala
     if stare.adancime == 0 or stare.tabla_joc.final():
-        stare.estimare = stare.tabla_joc.estimeaza_scor(stare.adancime)
+        stare.estimare = stare.tabla_joc.estimeaza_scor(stare.adancime, TIP_ESTIMARE)
         return stare
 
     # calculez toate mutarile posibile din starea curenta
@@ -277,7 +360,7 @@ def min_max(stare):
 
 def alpha_beta(alpha, beta, stare):
     if stare.adancime == 0 or stare.tabla_joc.final():
-        stare.estimare = stare.tabla_joc.estimeaza_scor(stare.adancime)
+        stare.estimare = stare.tabla_joc.estimeaza_scor(stare.adancime, TIP_ESTIMARE)
         return stare
 
     if alpha > beta:

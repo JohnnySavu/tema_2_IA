@@ -4,13 +4,14 @@ import pygame
 import sys
 
 ADANCIME_MAX = 2
+TIP_ESTIMARE = 1
 
 class Joc:
     """
     Clasa care defineste jocul. Se va schimba de la un joc la altul.
     """
-    NR_COLOANE = 8
-    NR_LINII = 11
+    NR_COLOANE = 3
+    NR_LINII = 3
     JMIN = None
     JMAX = None
     GOL = '#'
@@ -20,6 +21,7 @@ class Joc:
         if nrLinii is not None and nrColoane is not None:
             self.NR_COLOANE = nrColoane
             self.NR_LINII = nrLinii
+        self.drum_castigator = []
 
         self.matr = tabla or [Joc.GOL] * self.NR_LINII * self.NR_COLOANE
 
@@ -60,6 +62,26 @@ class Joc:
 
         pygame.display.update()
 
+    def deseneaza_final(self):
+
+        for ind in range(self.__class__.NR_COLOANE * self.__class__.NR_LINII):
+            linie = ind // self.__class__.NR_COLOANE  # // inseamna div
+            coloana = ind % self.__class__.NR_COLOANE
+
+            culoare = (255, 255, 255) # alb, e necolorat
+
+            if self.matr[ind] == 'R':
+                culoare = (255, 0, 0)
+            elif self.matr[ind] == 'B':
+                culoare = (0, 0, 255)
+
+            if ind in self.drum_castigator:
+                culoare = (117, 14, 161)
+
+            pygame.draw.rect(self.__class__.display, culoare, self.__class__.celuleGrid[ind])
+
+        pygame.display.update()
+
 
     #ca sa convertesc de la x y la coordonata liniara
     @classmethod
@@ -94,10 +116,22 @@ class Joc:
 
         #vad daca a castigat rosul
         for col in range(self.NR_COLOANE):
+            #vad drumul castigator
             if dp[self.obtine_pozitie(self.NR_LINII - 1, col)] == 1:
+                self.drum_castigator.append(self.obtine_pozitie(self.NR_LINII - 1, col))
+                pozx = self.NR_LINII - 1
+                pozy = col
+                while pozx > 0:
+                    if self.obtine_pozitie(pozx - 1, pozy) and dp[self.obtine_pozitie(pozx - 1, pozy)] == 1:
+                        self.drum_castigator.append(self.obtine_pozitie(pozx - 1, pozy))
+                        pozx -= 1
+                    elif self.obtine_pozitie(pozx - 1, pozy + 1) and dp[self.obtine_pozitie(pozx - 1, pozy + 1)] == 1:
+                        self.drum_castigator.append(self.obtine_pozitie(pozx - 1, pozy + 1))
+                        pozx -= 1
                 return 'R'
 
         #trebuie sa fac in mare aceleasi verificari si pentru albastru
+        #trebuie sa fie de la stanga la dreapta
         dp = [0] * self.NR_LINII * self.NR_COLOANE
         for lin in range(self.NR_LINII):
             poz = self.obtine_pozitie(lin, 0)
@@ -108,14 +142,29 @@ class Joc:
         for col in range(1, self.NR_COLOANE):
             for lin in range(self.NR_LINII - 1):
                 if self.matr[self.obtine_pozitie(lin, col)] == 'B':
-                    dp[self.obtine_pozitie(lin, col)] = max(dp[self.obtine_pozitie(lin, col - 1)], dp[self.obtine_pozitie(lin + 1, col - 1)])
+                    if max(dp[self.obtine_pozitie(lin, col - 1)], dp[self.obtine_pozitie(lin + 1, col - 1)]) > 0:
+                        dp[self.obtine_pozitie(lin, col)] = max(dp[self.obtine_pozitie(lin, col - 1)], dp[self.obtine_pozitie(lin + 1, col - 1)]) + 1
 
-            if self.matr[self.obtine_pozitie(self.NR_LINII - 1, col)] == 'B':
-                dp[self.obtine_pozitie(self.NR_LINII - 1, col)] = dp[self.obtine_pozitie(self.NR_LINII - 1, col - 1)]
+            if self.matr[self.obtine_pozitie(self.NR_LINII - 1, col)] == 'B' and dp[self.obtine_pozitie(self.NR_LINII - 1, col - 1)] != 0:
+                dp[self.obtine_pozitie(self.NR_LINII - 1, col)] = dp[self.obtine_pozitie(self.NR_LINII - 1, col - 1)] + 1
 
         #vad daca a castigat albastrul
         for lin in range(self.NR_LINII):
-            if dp[self.obtine_pozitie(lin, self.NR_COLOANE - 1)] == 1:
+            if dp[self.obtine_pozitie(lin, self.NR_COLOANE - 1)] > 0:
+                pozx = lin
+                pozy = self.NR_COLOANE - 1
+                self.drum_castigator.append(self.obtine_pozitie(pozx, pozy))
+                while pozy > 0:
+                    if self.obtine_pozitie(pozx - 1, pozy) and dp[self.obtine_pozitie(pozx - 1, pozy)] + 1 == dp[self.obtine_pozitie(pozx, pozy)]:
+                        self.drum_castigator.append(self.obtine_pozitie(pozx - 1, pozy))
+                        pozx -= 1
+                    elif self.obtine_pozitie(pozx + 1, pozy - 1) and dp[self.obtine_pozitie(pozx + 1, pozy - 1)] + 1 == dp[self.obtine_pozitie(pozx, pozy)]:
+                        self.drum_castigator.append(self.obtine_pozitie(pozx + 1, pozy - 1))
+                        pozx += 1
+                        pozy -= 1
+                    elif self.obtine_pozitie(pozx, pozy - 1) and dp[self.obtine_pozitie(pozx, pozy - 1)] + 1 == dp[self.obtine_pozitie(pozx, pozy)]:
+                        self.drum_castigator.append(self.obtine_pozitie(pozx, pozy - 1))
+                        pozy -= 1
                 return "B"
 
         #de verificat si remiza
@@ -136,35 +185,177 @@ class Joc:
                 l_mutari.append(Joc(copie_matr))
         return l_mutari
 
-    # linie deschisa inseamna linie pe care jucatorul mai poate forma o configuratie castigatoare
-    # practic e o linie fara simboluri ale jucatorului opus
-    def linie_deschisa(self, lista, jucator):
-        jo = self.jucator_opus(jucator)
-        # verific daca pe linia data nu am simbolul jucatorului opus
-        if not jo in lista:
-            # return lista.count(jucator)
-            return 1
-        return 0
 
-    def linii_deschise(self, jucator):
-        return self.linie_deschisa(self.matr[0:3], jucator) + self.linie_deschisa(self.matr[3:6],
-                                                                                  jucator) + self.linie_deschisa(
-            self.matr[6:9], jucator) + self.linie_deschisa(self.matr[0:9:3], jucator) + self.linie_deschisa(
-            self.matr[1:9:3], jucator) + self.linie_deschisa(self.matr[2:9:3], jucator) + self.linie_deschisa(
-            self.matr[0:9:4], jucator) + self.linie_deschisa(self.matr[2:7:2], jucator)
+    #imi returneaza in cate mutari castig in mod optim
+    def cate_mutari(self, jucator):
+        if jucator == 'B':
+            #stanga dreapta
+            dp = [float("inf")] * (self.NR_LINII * self.NR_COLOANE + 1)
+            #initial, pentru prima coloana
+            for lin in range(self.NR_LINII):
+                col = 0
+                poz = self.obtine_pozitie(lin, col)
+                if self.matr[poz] == 'B':
+                    dp[poz] = 0
+                elif self.matr[poz] == 'R':
+                    dp[poz] = float("inf")
+                else:
+                    dp[poz] = 1
+            for col in range(1, self.NR_COLOANE):
+                lin = 0
+                poz = self.obtine_pozitie(lin, col)
+                if self.matr[poz] == 'R':
+                    dp[poz] = float('inf')
+                else:
+                    dp[poz] = min(dp[self.obtine_pozitie(lin, col - 1)], dp[self.obtine_pozitie(lin + 1, col - 1)])
+                    if self.matr[poz] != 'B':
+                        dp[poz] += 1
+                for lin in range(1, self.NR_LINII - 1):
+                    poz = self.obtine_pozitie(lin, col)
+                    if self.matr[poz] == 'R':
+                        dp[poz] = float('inf')
+                    else:
+                        dp[poz] = min(dp[self.obtine_pozitie(lin - 1, col)], dp[self.obtine_pozitie(lin, col -1)],
+                                      dp[self.obtine_pozitie(lin + 1, col)])
+                        if self.matr[poz] != 'B':
+                            dp[poz] += 1
+                lin = self.NR_LINII - 1
+                poz = self.obtine_pozitie(lin, col)
+                if self.matr[poz] == 'R':
+                    dp[poz] = float('inf')
+                else:
+                    dp[poz] = min(dp[self.obtine_pozitie(lin-1, col)], dp[self.obtine_pozitie(lin, col -1)])
+            ans = float('inf')
+            for lin in range(self.NR_LINII):
+                col = self.NR_COLOANE - 1
+                ans = min(ans, dp[self.obtine_pozitie(lin, col)])
+            return ans
+        #pentru Red
+        else:
+            dp = [float("inf")] * (self.NR_LINII * self.NR_COLOANE + 1)
+            for col in range(self.NR_COLOANE):
+                lin = 0
+                poz = self.obtine_pozitie(lin, col)
+                if self.matr[poz] == 'R':
+                    dp[poz] = 0
+                elif self.matr[poz] =='B':
+                    dp[poz] = float('inf')
+                else:
+                    dp[poz] = 1
+            for lin in range(1, self.NR_LINII):
+                for col in range(self.NR_COLOANE - 1):
+                    poz = self.obtine_pozitie(lin, col)
+                    if self.matr[poz] == 'B':
+                        dp[poz] = 'inf'
+                    else:
+                        dp[poz] = min(dp[self.obtine_pozitie(lin - 1, col)], dp[self.obtine_pozitie(lin, col + 1)])
+                        if self.matr[poz] != 'R':
+                            dp[poz] += 1
+                col = self.NR_COLOANE - 1
+                poz = self.obtine_pozitie(lin, col)
+                if self.matr[poz] == 'B':
+                    dp[poz] = float('inf')
+                else:
+                    dp[poz] = dp[self.obtine_pozitie(lin -1, col)]
+                    if self.poz != 'R':
+                        dp[poz] += 1
+            ans = float('inf')
+            for col in range(self.NR_COLOANE):
+                lin = self.NR_LINII - 1
+                poz = self.obtine_pozitie(lin, col)
+                ans = min(ans, dp[poz])
+            return ans
 
-    # TO DO 7
-    def estimeaza_scor(self, adancime):
+
+
+    #calculez pe cate drumuri mai poate castiga un jucator
+    def cate_drumuri(self, jucator):
+        #trebuie facuta sperata pentru fiecare tip de jucator
+        if jucator == 'B':
+            #stanga dreapta
+            #dinamica care ne ajuta sa obtinem acest numar de drumuri.
+            #calculez mai intai dp-ul de pe prima coloana
+            dp = [0]  * (self.NR_COLOANE * self.NR_LINII  + 1)
+            for lin in range (self.NR_LINII):
+                col = 0
+                poz = self.obtine_pozitie(lin, col)
+                if self.matr[poz] != 'R':
+                    dp[poz] = 1
+                else:
+                    dp[poz] = 0
+            #calculez restul de dp-uri
+            for col in range (1, self.NR_COLOANE):
+                lin = 0
+                poz = self.obtine_pozitie(lin, col)
+                if self.matr != 'R':
+                    dp[poz] = dp[self.obtine_pozitie(lin + 1, col - 1)] + dp[self.obtine_pozitie(lin, col - 1)]
+                else:
+                    dp[poz] = 0
+                for lin in range(1, self.NR_LINII - 1):
+                    poz = self.obtine_pozitie(lin, col)
+                if self.matr != 'R':
+                    dp[poz] = dp[self.obtine_pozitie(lin + 1, col - 1)] + dp[self.obtine_pozitie(lin, col - 1)] + \
+                                dp[self.obtine_pozitie(lin - 1, col)]
+                else:
+                    dp[poz] = 0
+            lin = self.NR_LINII - 1
+            poz = self.obtine_pozitie(lin, col)
+
+            if self.matr[poz] != 'R':
+                dp[poz] = dp[self.obtine_pozitie(lin - 1, col)] + dp[self.obtine_pozitie(lin, col - 1)]
+            ans = 0
+            #calculez suma posibilitatiilor
+            for lin in range(self.NR_LINII):
+                ans += dp[self.obtine_pozitie(lin, self.NR_COLOANE - 1)]
+            return ans
+        #suntem cu rosu
+        else:
+            dp = [0] * (self.NR_COLOANE * self.NR_LINII + 1)
+            #intializam
+            for col in range (self.NR_COLOANE):
+                lin = 0
+                poz = self.obtine_pozitie(lin, col)
+                if self.matr[poz] != 'B':
+                    dp[poz] = 1
+            #calculam pentru toata matricea
+            for lin in range(1, self.NR_LINII):
+                for col in range(self.NR_COLOANE - 1):
+                    poz = self.obtine_pozitie(lin ,col)
+                    if self.matr[poz] != 'B':
+                        dp[poz] = dp[self.obtine_pozitie(lin, col)] + dp[self.obtine_pozitie(lin ,col + 1)]
+                    else:
+                        dp[poz] = 0
+                col = self.NR_COLOANE - 1
+                poz = self.obtine_pozitie(lin, col)
+
+                if self.matr[poz] != 'B':
+                    dp[poz] = dp[self.obtine_pozitie(lin - 1, col)]
+            #calculam raspunsul
+            ans = 0
+            for col in range(self.NR_COLOANE):
+                lin = self.NR_LINII - 1
+                poz = self.obtine_pozitie(lin, col)
+                ans += dp[poz]
+            return ans
+
+
+
+    def estimeaza_scor(self, adancime, tip = 1):
         t_final = self.final()
         # if (adancime==0):
         if t_final == self.__class__.JMAX:  # self.__class__ referinta catre clasa instantei
-            return (99 + adancime)
+            return (9999 + adancime)
         elif t_final == self.__class__.JMIN:
-            return (-99 - adancime)
+            return (-9999 - adancime)
         elif t_final == 'remiza':
             return 0
         else:
-            return (self.linii_deschise(self.__class__.JMAX) - self.linii_deschise(self.__class__.JMIN))
+            if tip == 1:
+                #primul tip de estimare
+                return (self.cate_drumuri(self.__class__.JMAX) - self.cate_drumuri(self.__class__.JMIN))
+            else:
+                return (self.cate_mutari(self.__class__.JMIN) - self.cate_mutari(self.__class__.JMAX))
+
 
     def sirAfisare(self):
         sir = "  |"
@@ -346,9 +537,20 @@ def deseneaza_alegeri(display, tabla_curenta):
         ],
         indiceSelectat= 0)
 
-    ok = Buton(display=display, top=250, left=30, w=40, h=30, text="ok", culoareFundal=(155, 0, 55))
+    btn_estimare = GrupButoane(
+        top=250,
+        left=30,
+        listaButoane=[
+            Buton(display=display, w=65, h=30, text="estim_1", valoare="1"),
+            Buton(display=display, w=65, h=30, text="estim_2", valoare="2")
+        ],
+        indiceSelectat=0)
+
+
+    ok = Buton(display=display, top=330, left=30, w=40, h=30, text="ok", culoareFundal=(155, 0, 55))
     btn_alg.deseneaza()
     btn_juc.deseneaza()
+    btn_estimare.deseneaza()
     btn_dificultate.deseneaza()
     btn_tip_joc.deseneaza()
     ok.deseneaza()
@@ -363,10 +565,11 @@ def deseneaza_alegeri(display, tabla_curenta):
                     if not btn_juc.selecteazaDupacoord(pos):
                         if not btn_tip_joc.selecteazaDupacoord(pos):
                             if not btn_dificultate.selecteazaDupacoord(pos):
-                                if ok.selecteazaDupacoord(pos):
-                                    display.fill((0, 0, 0))  # stergere ecran
-                                    tabla_curenta.deseneaza_grid()
-                                    return btn_juc.getValoare(), btn_alg.getValoare(), btn_tip_joc.getValoare(), btn_dificultate.getValoare()
+                                if not btn_estimare.selecteazaDupacoord(pos):
+                                    if ok.selecteazaDupacoord(pos):
+                                        display.fill((0, 0, 0))  # stergere ecran
+                                        tabla_curenta.deseneaza_grid()
+                                        return btn_juc.getValoare(), btn_alg.getValoare(), btn_tip_joc.getValoare(), btn_dificultate.getValoare(), btn_estimare.getValoare()
         pygame.display.update()
 
 
@@ -384,28 +587,18 @@ def afis_daca_final(stare_curenta):
     return False
 
 
-if __name__ == '__main__':
-    pygame.init()
-    pygame.display.set_caption("Savu Ioan Daniel Hex")
-    # dimensiunea ferestrei in pixeli
-    w = 50
-    ecran = pygame.display.set_mode(size=((int(0.5 * Joc.NR_LINII)  + 1 + Joc.NR_COLOANE ) * (w + 1) - 1,
-                                          (int(Joc.NR_COLOANE * 0.5) + 1 + Joc.NR_LINII) * (w + 1) - 1))
 
-    Joc.initializeaza(ecran, dim_celula=w)
-    tabla_curenta = Joc()
-    Joc.JMIN, tip_algoritm = deseneaza_alegeri(ecran, tabla_curenta)
-    print(Joc.JMIN, tip_algoritm)
+def pvp():
+    hasWon = False
+    timpi_jucatori = dict()
+    timpi_jucatori[Joc.JMIN] = []
+    timpi_jucatori[Joc.JMAX] = []
 
-    Joc.JMAX = 'R' if Joc.JMIN == 'B' else 'B'
-
-    print("Tabla initiala")
-    print(str(tabla_curenta))
-
-    # creare stare initiala
-    stare_curenta = Stare(tabla_curenta, 'R', ADANCIME_MAX)
+    timpi_jucatori[stare_curenta.j_curent].append(time.time())
 
     while True:
+        #afisam butonul de exit
+        exit_button.deseneaza()
         if (stare_curenta.j_curent == Joc.JMIN):
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -413,16 +606,26 @@ if __name__ == '__main__':
                     pygame.quit()
                     sys.exit()
                 if event.type == pygame.MOUSEMOTION:
-
+                    #daca s-a terminat jocul, afisam tabla finala fara a mai face modificari
+                    if hasWon:
+                        stare_curenta.tabla_joc.deseneaza_final()
+                        continue
                     pos = pygame.mouse.get_pos()  # coordonatele cursorului
+
                     for np in range(len(Joc.celuleGrid)):
                         if Joc.celuleGrid[np].collidepoint(pos):
                             stare_curenta.tabla_joc.deseneaza_grid(coloana_marcaj=np % Joc.NR_COLOANE, linie_marcaj = np // Joc.NR_COLOANE)
                             break
 
+                    #desenam si butonul de exit game
+
                 elif event.type == pygame.MOUSEBUTTONDOWN:
 
                     pos = pygame.mouse.get_pos()  # coordonatele cursorului la momentul clickului
+                    if exit_button.selecteazaDupacoord(pos):
+                        print("exiting")
+                        pygame.quit()
+                        sys.exit()
 
                     for np in range(len(Joc.celuleGrid)):
 
@@ -443,28 +646,44 @@ if __name__ == '__main__':
                                 # testez daca jocul a ajuns intr-o stare finala
                                 # si afisez un mesaj corespunzator in caz ca da
                                 if (afis_daca_final(stare_curenta)):
+                                    #pygame.quit()
+                                    stare_curenta.tabla_joc.deseneaza_final()
+                                    hasWon = True
                                     break
-
+                                timpi_jucatori[stare_curenta.j_curent][-1] = time.time() - timpi_jucatori[stare_curenta.j_curent][-1]
+                                print("Timpul de gandire pentru jucatorul 1 este:", timpi_jucatori[stare_curenta.j_curent][-1])
                                 # S-a realizat o mutare. Schimb jucatorul cu cel opus
                                 stare_curenta.j_curent = Joc.jucator_opus(stare_curenta.j_curent)
+
+                                timpi_jucatori[stare_curenta.j_curent].append(time.time())
         else:
             for event in pygame.event.get():
+                exit_button.deseneaza()
                 if event.type == pygame.QUIT:
                     # iesim din program
                     pygame.quit()
                     sys.exit()
                 if event.type == pygame.MOUSEMOTION:
 
+                    if hasWon:
+                        stare_curenta.tabla_joc.deseneaza_final()
+                        continue
+
                     pos = pygame.mouse.get_pos()  # coordonatele cursorului
                     for np in range(len(Joc.celuleGrid)):
                         if Joc.celuleGrid[np].collidepoint(pos):
-                            stare_curenta.tabla_joc.deseneaza_grid(coloana_marcaj=np % Joc.NR_COLOANE,
-                                                                   linie_marcaj=np // Joc.NR_COLOANE)
+                            stare_curenta.tabla_joc.deseneaza_grid(coloana_marcaj=np % Joc.NR_COLOANE, linie_marcaj = np // Joc.NR_COLOANE)
                             break
+
+                    #desenam si butonul de exit game
 
                 elif event.type == pygame.MOUSEBUTTONDOWN:
 
                     pos = pygame.mouse.get_pos()  # coordonatele cursorului la momentul clickului
+                    if exit_button.selecteazaDupacoord(pos):
+                        print("exiting")
+                        pygame.quit()
+                        sys.exit()
 
                     for np in range(len(Joc.celuleGrid)):
 
@@ -473,7 +692,7 @@ if __name__ == '__main__':
                             coloana = np % Joc.NR_COLOANE
                             ###############################
 
-                            if stare_curenta.tabla_joc.matr[np] == Joc.GOL:
+                            if stare_curenta.tabla_joc.matr[np]== Joc.GOL:
                                 stare_curenta.tabla_joc.matr[np] = Joc.JMAX
                                 niv = 0
 
@@ -485,7 +704,52 @@ if __name__ == '__main__':
                                 # testez daca jocul a ajuns intr-o stare finala
                                 # si afisez un mesaj corespunzator in caz ca da
                                 if (afis_daca_final(stare_curenta)):
+                                    stare_curenta.tabla_joc.deseneaza_final()
+                                    print(stare_curenta.tabla_joc.drum_castigator)
+                                    hasWon = True
                                     break
 
+                                timpi_jucatori[stare_curenta.j_curent][-1] = time.time() - \
+                                                                             timpi_jucatori[stare_curenta.j_curent][-1]
+                                print("Timpul de gandire pentru jucatorul 2 este:",
+                                      timpi_jucatori[stare_curenta.j_curent][-1])
                                 # S-a realizat o mutare. Schimb jucatorul cu cel opus
                                 stare_curenta.j_curent = Joc.jucator_opus(stare_curenta.j_curent)
+
+                                timpi_jucatori[stare_curenta.j_curent].append(time.time())
+
+
+
+if __name__ == '__main__':
+    pygame.init()
+    pygame.display.set_caption("Savu Ioan Daniel Hex")
+    # dimensiunea ferestrei in pixeli
+    w = 50
+    nrLinii = max(5, Joc.NR_LINII)
+    nrColoane = max(5, Joc.NR_COLOANE)
+    ecran = pygame.display.set_mode(size=((int(0.5 * nrLinii)  + 1 + nrColoane ) * (w + 1) - 1,
+                                          (int(nrColoane * 0.5) + 1 + nrLinii) * (w + 1) - 1))
+    poz_exit_button =  int((int(Joc.NR_COLOANE * 0.5) + 1 + Joc.NR_LINII) * (w + 1) - 1) - 50
+    exit_button = Buton(display=ecran, top=poz_exit_button, left=30, w=40, h=30, text="exit", culoareFundal=(155, 0, 55))
+    Joc.initializeaza(ecran, dim_celula=w)
+    tabla_curenta = Joc()
+
+
+
+    Joc.JMIN, tip_algoritm, tip_joc, dificultate, tip_estimare = deseneaza_alegeri(ecran, tabla_curenta)
+    TIP_ESTIMARE = int(tip_estimare)
+
+    print(Joc.JMIN, tip_algoritm)
+
+    Joc.JMAX = 'R' if Joc.JMIN == 'B' else 'B'
+
+    print("Tabla initiala")
+    print(str(tabla_curenta))
+
+    # creare stare initiala
+    stare_curenta = Stare(tabla_curenta, 'R', ADANCIME_MAX)
+    print(tip_joc)
+
+    if tip_joc == 'PvP':
+        pvp()
+
