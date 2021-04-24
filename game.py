@@ -2,6 +2,7 @@ import time
 import copy
 import pygame
 import sys
+import statistics
 
 ADANCIME_MAX = 2
 TIP_ESTIMARE = 1
@@ -11,8 +12,8 @@ class Joc:
     """
     Clasa care defineste jocul. Se va schimba de la un joc la altul.
     """
-    NR_COLOANE = 3
-    NR_LINII = 3
+    NR_COLOANE = 5
+    NR_LINII = 5
     JMIN = None
     JMAX = None
     GOL = '#'
@@ -96,84 +97,123 @@ class Joc:
         return cls.JMAX if jucator == cls.JMIN else cls.JMIN
 
     def final(self):
-        # mai intai fac pentru jucatoru rosu, trebuie sa fie de sus in jos
-        dp = [0] * self.NR_LINII * self.NR_COLOANE
-        #initializez
+        #verificam mai intai pentru rosu
+        #rosu e de sus in jos
+        dx = [-1, -1, 0, 0, 1, 1]
+        dy = [0, 1, 1, -1, 0, -1]
+        #------------------- rosu -------------------
+        coada = []
+        dp = [0] * (self.NR_COLOANE * self.NR_LINII + 1)
+        #facem un bfs, si mai intai stabilim pozitiile de plecare
         for col in range(self.NR_COLOANE):
-            poz = self.obtine_pozitie(0, col)
-            #daca e rosu e ok
+            lin = 0
+            poz = self.obtine_pozitie(lin ,col)
             if self.matr[poz] == 'R':
                 dp[poz] = 1
-        #calculez dp-ul
-        for lin in range(1, self.NR_LINII):
-            for col in range(self.NR_COLOANE - 1):
-                poz = self.obtine_pozitie(lin, col)
-                if self.matr[poz] == 'R':
-                    dp[poz] = max(dp[self.obtine_pozitie(lin - 1, col)], dp[self.obtine_pozitie(lin - 1, col + 1)])
+                coada.append(poz)
+        #facem bfs-ul
+        while len(coada) > 0:
+            poz = coada[0]
+            coada.pop(0)
+            #linia si coloana curenta
+            lin = poz // self.NR_COLOANE
+            col = poz % self.NR_COLOANE
+            #este o pozitie finala
+            if lin == self.NR_LINII - 1:
+                break
 
-            #asta poate sa fie prelungit doar de la cel de sus
-            if self.matr[self.obtine_pozitie(lin, self.NR_COLOANE - 1)] == 'R':
-                dp[self.obtine_pozitie(lin, self.NR_COLOANE - 1)] = dp[self.obtine_pozitie(lin - 1, self.NR_COLOANE - 1)]
-
-        #vad daca a castigat rosul
+            for i in range(6):
+                #noua linie / coloana in care mergem
+                newLin = lin + dx[i]
+                newCol = col + dy[i]
+                newPoz = self.obtine_pozitie(newLin, newCol)
+                #daca e ok, o punem in coada
+                if newPoz is not None and self.matr[newPoz] == 'R' and dp[newPoz] == 0:
+                    dp[newPoz] = dp[poz] + 1
+                    coada.append(newPoz)
+        #verificam daca am ajuns la final
         for col in range(self.NR_COLOANE):
-            #vad drumul castigator
-            if dp[self.obtine_pozitie(self.NR_LINII - 1, col)] == 1:
-                self.drum_castigator.append(self.obtine_pozitie(self.NR_LINII - 1, col))
-                pozx = self.NR_LINII - 1
-                pozy = col
-                while pozx > 0:
-                    if self.obtine_pozitie(pozx - 1, pozy) and dp[self.obtine_pozitie(pozx - 1, pozy)] == 1:
-                        self.drum_castigator.append(self.obtine_pozitie(pozx - 1, pozy))
-                        pozx -= 1
-                    elif self.obtine_pozitie(pozx - 1, pozy + 1) and dp[self.obtine_pozitie(pozx - 1, pozy + 1)] == 1:
-                        self.drum_castigator.append(self.obtine_pozitie(pozx - 1, pozy + 1))
-                        pozx -= 1
+            lin = self.NR_LINII - 1
+            poz = self.obtine_pozitie(lin, col)
+            #inseamna ca am ajuns si reconstruim drumul
+            if dp[poz] != 0:
+                self.drum_castigator.append(poz)
+                while dp[poz] > 1:
+
+                    lin = poz // self.NR_COLOANE
+                    col = poz % self.NR_COLOANE
+
+                    for i in range(6):
+                        newLin = lin + dx[i]
+                        newCol = col + dy[i]
+                        newPoz = self.obtine_pozitie(newLin, newCol)
+
+                        if newPoz is not None and dp[newPoz] == dp[poz] - 1 :
+                            self.drum_castigator.append(newPoz)
+                            poz = newPoz
+                            break
                 return 'R'
 
-        #trebuie sa fac in mare aceleasi verificari si pentru albastru
-        #trebuie sa fie de la stanga la dreapta
-        dp = [0] * self.NR_LINII * self.NR_COLOANE
+        #de la stanga la dreapta
+        # ------------------- albastru -------------------
+        coada = []
+        dp = [0] * (self.NR_COLOANE * self.NR_LINII + 1)
+        # facem un bfs, si mai intai stabilim pozitiile de plecare
         for lin in range(self.NR_LINII):
-            poz = self.obtine_pozitie(lin, 0)
-            #daca e albastru, e ok
-            if self.matr[poz] == "B":
+            col = 0
+            poz = self.obtine_pozitie(lin, col)
+            if self.matr[poz] == 'B':
                 dp[poz] = 1
-        #calculez dp- ul
-        for col in range(1, self.NR_COLOANE):
-            for lin in range(self.NR_LINII - 1):
-                if self.matr[self.obtine_pozitie(lin, col)] == 'B':
-                    if max(dp[self.obtine_pozitie(lin, col - 1)], dp[self.obtine_pozitie(lin + 1, col - 1)]) > 0:
-                        dp[self.obtine_pozitie(lin, col)] = max(dp[self.obtine_pozitie(lin, col - 1)], dp[self.obtine_pozitie(lin + 1, col - 1)]) + 1
+                coada.append(poz)
+        # facem bfs-ul
+        while len(coada) > 0:
+            poz = coada[0]
+            coada.pop(0)
+            # linia si coloana curenta
+            lin = poz // self.NR_COLOANE
+            col = poz % self.NR_COLOANE
+            # este o pozitie finala
+            if col == self.NR_COLOANE - 1:
+                break
 
-            if self.matr[self.obtine_pozitie(self.NR_LINII - 1, col)] == 'B' and dp[self.obtine_pozitie(self.NR_LINII - 1, col - 1)] != 0:
-                dp[self.obtine_pozitie(self.NR_LINII - 1, col)] = dp[self.obtine_pozitie(self.NR_LINII - 1, col - 1)] + 1
-
-        #vad daca a castigat albastrul
+            for i in range(6):
+                # noua linie / coloana in care mergem
+                newLin = lin + dx[i]
+                newCol = col + dy[i]
+                newPoz = self.obtine_pozitie(newLin, newCol)
+                # daca e ok, o punem in coada
+                if newPoz is not None and self.matr[newPoz] == 'B' and dp[newPoz] == 0:
+                    dp[newPoz] = dp[poz] + 1
+                    coada.append(newPoz)
+        # verificam daca am ajuns la final
         for lin in range(self.NR_LINII):
-            if dp[self.obtine_pozitie(lin, self.NR_COLOANE - 1)] > 0:
-                pozx = lin
-                pozy = self.NR_COLOANE - 1
-                self.drum_castigator.append(self.obtine_pozitie(pozx, pozy))
-                while pozy > 0:
-                    if self.obtine_pozitie(pozx - 1, pozy) and dp[self.obtine_pozitie(pozx - 1, pozy)] + 1 == dp[self.obtine_pozitie(pozx, pozy)]:
-                        self.drum_castigator.append(self.obtine_pozitie(pozx - 1, pozy))
-                        pozx -= 1
-                    elif self.obtine_pozitie(pozx + 1, pozy - 1) and dp[self.obtine_pozitie(pozx + 1, pozy - 1)] + 1 == dp[self.obtine_pozitie(pozx, pozy)]:
-                        self.drum_castigator.append(self.obtine_pozitie(pozx + 1, pozy - 1))
-                        pozx += 1
-                        pozy -= 1
-                    elif self.obtine_pozitie(pozx, pozy - 1) and dp[self.obtine_pozitie(pozx, pozy - 1)] + 1 == dp[self.obtine_pozitie(pozx, pozy)]:
-                        self.drum_castigator.append(self.obtine_pozitie(pozx, pozy - 1))
-                        pozy -= 1
-                return "B"
+            col = self.NR_COLOANE - 1
+            poz = self.obtine_pozitie(lin, col)
+            # inseamna ca am ajuns si reconstruim drumul
+            if dp[poz] != 0:
+                self.drum_castigator.append(poz)
+                while dp[poz] > 1:
 
-        #de verificat si remiza
+                    lin = poz // self.NR_COLOANE
+                    col = poz % self.NR_COLOANE
+
+                    for i in range(6):
+                        newLin = lin + dx[i]
+                        newCol = col + dy[i]
+                        newPoz = self.obtine_pozitie(newLin, newCol)
+
+                        if newPoz is not None and dp[newPoz] == dp[poz] - 1:
+                            self.drum_castigator.append(newPoz)
+                            poz = newPoz
+                            break
+                return 'B'
+
+        #inseamna ca mai putem muta ceva si inca nu e remiza
         for lin in range(self.NR_LINII):
             for col in range(self.NR_COLOANE):
                 if self.matr[self.obtine_pozitie(lin, col)] == Joc.GOL:
                     return False
-
+        # inseamna ca avem remiza
         return "remiza"
 
 
@@ -187,12 +227,68 @@ class Joc:
         return l_mutari
 
 
-    #imi returneaza in cate mutari castig in mod optim
+    #imi returneaza care este cea mai lunga inaltime / latime a unei 'insule' data de culorile unui jucator
+    def lungime_maxima(self, jucator):
+
+        dp = [0] * (self.NR_LINII * self.NR_COLOANE + 1)
+
+        dx = [-1, -1, 0, 0, 1, 1]
+        dy = [0, 1, 1, -1, 0, -1]
+
+        #linia maxima la care ajunge "insula"
+        maxLin = -1
+        maxCol = -1
+        #linia minima la care ajunge insula
+        minLin = self.NR_LINII + 1
+        minCol = self.NR_COLOANE + 1
+        #rezultatul returnat de functie
+
+        bestLen = -1
+
+        for lin in range(self.NR_LINII):
+            for col in range(self.NR_COLOANE):
+                poz = self.obtine_pozitie(lin, col)
+                #daca am o "insula" neexplorata, o vizitez, facand dfs
+                if dp[poz] == 0 and self.matr[poz] == jucator:
+                    # linia maxima la care ajunge "insula"
+                    maxLin = -1
+                    # linia minima la care ajunge insula
+                    minLin = self.NR_LINII + 1
+                    dp[poz] = 1
+                    coada = []
+                    coada.append(poz)
+                    while len(coada) > 0:
+                        poz = coada[0]
+                        coada.pop(0)
+                        lin = poz // self.NR_COLOANE
+                        col = poz % self.NR_COLOANE
+
+                        #recalculez maximele
+                        maxLin = max(lin, maxLin)
+                        minLin = min(lin, minLin)
+                        maxCol = max(col, maxCol)
+                        minCol = min(col, minCol)
+
+                        for i in range(6):
+                            newLin = lin + dx[i]
+                            newCol = col + dy[i]
+                            newPoz = self.obtine_pozitie(newLin, newCol)
+                            if newPoz is not None and self.matr[newPoz] == jucator and dp[newPoz] == 0:
+                                coada.append(newPoz)
+                                dp[newPoz] = 1
+                    if jucator == 'R':
+                        bestLen = max(bestLen, maxLin - minLin)
+                    else:
+                        bestLen = max(bestLen, maxCol - minCol)
+
+        return bestLen ** 2
+
+    # imi returneaza in cate mutari castig in mod optim
     def cate_mutari(self, jucator):
         if jucator == 'B':
-            #stanga dreapta
+            # stanga dreapta
             dp = [float("inf")] * (self.NR_LINII * self.NR_COLOANE + 1)
-            #initial, pentru prima coloana
+            # initial, pentru prima coloana
             for lin in range(self.NR_LINII):
                 col = 0
                 poz = self.obtine_pozitie(lin, col)
@@ -202,6 +298,8 @@ class Joc:
                     dp[poz] = float("inf")
                 else:
                     dp[poz] = 1
+
+            #calculez dinamica pentru restul de coloane
             for col in range(1, self.NR_COLOANE):
                 lin = 0
                 poz = self.obtine_pozitie(lin, col)
@@ -216,30 +314,36 @@ class Joc:
                     if self.matr[poz] == 'R':
                         dp[poz] = float('inf')
                     else:
-                        dp[poz] = min(dp[self.obtine_pozitie(lin - 1, col)], dp[self.obtine_pozitie(lin, col -1)],
+                        dp[poz] = min(dp[self.obtine_pozitie(lin - 1, col)], dp[self.obtine_pozitie(lin, col - 1)],
                                       dp[self.obtine_pozitie(lin + 1, col)])
                         if self.matr[poz] != 'B':
                             dp[poz] += 1
                 lin = self.NR_LINII - 1
                 poz = self.obtine_pozitie(lin, col)
+                #calculez dinamica pentru coloanele din dreapta
                 if self.matr[poz] == 'R':
                     dp[poz] = float('inf')
                 else:
-                    dp[poz] = min(dp[self.obtine_pozitie(lin-1, col)], dp[self.obtine_pozitie(lin, col -1)])
+                    dp[poz] = min(dp[self.obtine_pozitie(lin - 1, col)], dp[self.obtine_pozitie(lin, col - 1)])
             ans = float('inf')
             for lin in range(self.NR_LINII):
                 col = self.NR_COLOANE - 1
                 ans = min(ans, dp[self.obtine_pozitie(lin, col)])
+            if ans == float('inf'):
+                ans = 1000000
+            elif ans == float('-inf'):
+                ans = -10000
             return ans
-        #pentru Red
+        # pentru Red
         else:
+            #fac aceleasi lucruri in mod analog
             dp = [float("inf")] * (self.NR_LINII * self.NR_COLOANE + 1)
             for col in range(self.NR_COLOANE):
                 lin = 0
                 poz = self.obtine_pozitie(lin, col)
                 if self.matr[poz] == 'R':
                     dp[poz] = 0
-                elif self.matr[poz] =='B':
+                elif self.matr[poz] == 'B':
                     dp[poz] = float('inf')
                 else:
                     dp[poz] = 1
@@ -247,7 +351,7 @@ class Joc:
                 for col in range(self.NR_COLOANE - 1):
                     poz = self.obtine_pozitie(lin, col)
                     if self.matr[poz] == 'B':
-                        dp[poz] = 'inf'
+                        dp[poz] = float('inf')
                     else:
                         dp[poz] = min(dp[self.obtine_pozitie(lin - 1, col)], dp[self.obtine_pozitie(lin, col + 1)])
                         if self.matr[poz] != 'R':
@@ -257,106 +361,38 @@ class Joc:
                 if self.matr[poz] == 'B':
                     dp[poz] = float('inf')
                 else:
-                    dp[poz] = dp[self.obtine_pozitie(lin -1, col)]
-                    if self.poz != 'R':
+                    dp[poz] = dp[self.obtine_pozitie(lin - 1, col)]
+                    if self.matr[poz] != 'R':
                         dp[poz] += 1
             ans = float('inf')
             for col in range(self.NR_COLOANE):
                 lin = self.NR_LINII - 1
                 poz = self.obtine_pozitie(lin, col)
                 ans = min(ans, dp[poz])
+            if ans == float('inf'):
+                ans = 1000000
+            elif ans == float('-inf'):
+                ans = -10000
             return ans
 
 
-
-    #calculez pe cate drumuri mai poate castiga un jucator
-    def cate_drumuri(self, jucator):
-        #trebuie facuta sperata pentru fiecare tip de jucator
-        if jucator == 'B':
-            #stanga dreapta
-            #dinamica care ne ajuta sa obtinem acest numar de drumuri.
-            #calculez mai intai dp-ul de pe prima coloana
-            dp = [0]  * (self.NR_COLOANE * self.NR_LINII  + 1)
-            for lin in range (self.NR_LINII):
-                col = 0
-                poz = self.obtine_pozitie(lin, col)
-                if self.matr[poz] != 'R':
-                    dp[poz] = 1
-                else:
-                    dp[poz] = 0
-            #calculez restul de dp-uri
-            for col in range (1, self.NR_COLOANE):
-                lin = 0
-                poz = self.obtine_pozitie(lin, col)
-                if self.matr != 'R':
-                    dp[poz] = dp[self.obtine_pozitie(lin + 1, col - 1)] + dp[self.obtine_pozitie(lin, col - 1)]
-                else:
-                    dp[poz] = 0
-                for lin in range(1, self.NR_LINII - 1):
-                    poz = self.obtine_pozitie(lin, col)
-                if self.matr != 'R':
-                    dp[poz] = dp[self.obtine_pozitie(lin + 1, col - 1)] + dp[self.obtine_pozitie(lin, col - 1)] + \
-                                dp[self.obtine_pozitie(lin - 1, col)]
-                else:
-                    dp[poz] = 0
-            lin = self.NR_LINII - 1
-            poz = self.obtine_pozitie(lin, col)
-
-            if self.matr[poz] != 'R':
-                dp[poz] = dp[self.obtine_pozitie(lin - 1, col)] + dp[self.obtine_pozitie(lin, col - 1)]
-            ans = 0
-            #calculez suma posibilitatiilor
-            for lin in range(self.NR_LINII):
-                ans += dp[self.obtine_pozitie(lin, self.NR_COLOANE - 1)]
-            return ans
-        #suntem cu rosu
-        else:
-            dp = [0] * (self.NR_COLOANE * self.NR_LINII + 1)
-            #intializam
-            for col in range (self.NR_COLOANE):
-                lin = 0
-                poz = self.obtine_pozitie(lin, col)
-                if self.matr[poz] != 'B':
-                    dp[poz] = 1
-            #calculam pentru toata matricea
-            for lin in range(1, self.NR_LINII):
-                for col in range(self.NR_COLOANE - 1):
-                    poz = self.obtine_pozitie(lin ,col)
-                    if self.matr[poz] != 'B':
-                        dp[poz] = dp[self.obtine_pozitie(lin, col)] + dp[self.obtine_pozitie(lin ,col + 1)]
-                    else:
-                        dp[poz] = 0
-                col = self.NR_COLOANE - 1
-                poz = self.obtine_pozitie(lin, col)
-
-                if self.matr[poz] != 'B':
-                    dp[poz] = dp[self.obtine_pozitie(lin - 1, col)]
-            #calculam raspunsul
-            ans = 0
-            for col in range(self.NR_COLOANE):
-                lin = self.NR_LINII - 1
-                poz = self.obtine_pozitie(lin, col)
-                ans += dp[poz]
-            return ans
-
-
-
+    #functia din laborator, estimeaza scorul, insa este putin modificata
     def estimeaza_scor(self, adancime):
         global TIP_ESTIMARE
         t_final = self.final()
         # if (adancime==0):
         if t_final == self.__class__.JMAX:  # self.__class__ referinta catre clasa instantei
-            return (9999 + adancime)
+            return (9999999 + adancime)
         elif t_final == self.__class__.JMIN:
-            return (-9999 - adancime)
+            return (-9999999 - adancime)
         elif t_final == 'remiza':
             return 0
         else:
             if TIP_ESTIMARE == 1:
                 #primul tip de estimare
-                return (self.cate_drumuri(self.__class__.JMAX) - self.cate_drumuri(self.__class__.JMIN))
+                return (self.lungime_maxima(self.__class__.JMAX) -  self.lungime_maxima(self.__class__.JMIN))
             else:
-                return (self.cate_mutari(self.__class__.JMIN) - self.cate_mutari(self.__class__.JMAX))
+                return -(self.cate_mutari(self.__class__.JMAX) - self.cate_mutari(self.__class__.JMIN))
 
 
     def sirAfisare(self):
@@ -403,7 +439,7 @@ class Stare:
         # cea mai buna mutare din lista de mutari posibile pentru jucatorul curent
         # e de tip Stare (cel mai bun succesor)
         self.stare_aleasa = None
-
+    #calculez toti succesorii unui nod
     def mutari(self):
         l_mutari = self.tabla_joc.mutari(self.j_curent)  # lista de informatii din nodurile succesoare
         juc_opus = Joc.jucator_opus(self.j_curent)
@@ -528,7 +564,7 @@ def deseneaza_alegeri(display, tabla_curenta):
             Buton(display=display, w=45, h=30, text="AIvAI", valoare="AIvAI")
         ],
         indiceSelectat= 1)
-
+    #butoanele pentru cerintele suplimentare
     btn_dificultate = GrupButoane(
         top = 180,
         left = 30,
@@ -661,14 +697,41 @@ def afis_daca_final(stare_curenta):
     return False
 
 
-
+#functie care afiseaza statisticile cerute atunci cand jocul ajunge in starea finala
 def afiseaza_statistici(timp_joc = None, timpi_jucatori = None, noduri_generate = None):
     #afisam statisticile + tabla in configuratia finala
-    if timp_joc:
+    if timp_joc is not None:
         print("Timpul total de joc: ", timp_joc)
+    if noduri_generate is not None:
+        print("Statistici de noduri")
+        if "R" in noduri_generate.keys():
+            print("pentru jucatorul R")
+            print("Min:", min(noduri_generate['R']))
+            print("Max:", max(noduri_generate['R']))
+            print("media:", statistics.mean(noduri_generate['R']))
+            print("mediana:", statistics.median(noduri_generate['R']))
+        if "B" in noduri_generate.keys():
+            print("pentru jucatorul B")
+            print("Min:", min(noduri_generate['B']))
+            print("Max:", max(noduri_generate['B']))
+            print("media:", statistics.mean(noduri_generate['B']))
+            print("mediana:", statistics.median(noduri_generate['B']))
 
-    #to do in continuare
+    if timpi_jucatori is not None:
+        print("Statistici de timp")
+        print("Pentru jucatorul cu R")
+        print("Min:", min(timpi_jucatori['R']))
+        print("Max:", max(timpi_jucatori['R']))
+        print("media:", statistics.mean(timpi_jucatori['R']))
+        print("mediana:", statistics.median(timpi_jucatori['R']))
+        print("Pentru jucatorul B")
+        print("Min:", min(timpi_jucatori['B']))
+        print("Max:", max(timpi_jucatori['B']))
+        print("media:", statistics.mean(timpi_jucatori['B']))
+        print("mediana:", statistics.median(timpi_jucatori['B']))
 
+    print("Numarul total de mutari pentru R", len(timpi_jucatori['R']))
+    print("Numarul total de mutari pentru B", len(timpi_jucatori['B']))
     while True:
         exit_button.deseneaza()
         for event in pygame.event.get():
@@ -947,6 +1010,7 @@ def aivai():
         # afisam butonul de exit
         exit_button.deseneaza()
         if (stare_curenta.j_curent == Joc.JMIN):
+            tip_algoritm = 1
             # Mutare calculator
 
             # preiau timpul in milisecunde de dinainte de mutare
@@ -978,6 +1042,7 @@ def aivai():
             stare_curenta.j_curent = Joc.jucator_opus(stare_curenta.j_curent)
             timpi_jucatori[stare_curenta.j_curent].append(time.time())
         else:  # jucatorul e JMAX (calculatorul)
+            tip_algoritm = 2
             # Mutare calculator
 
             # preiau timpul in milisecunde de dinainte de mutare
@@ -1037,7 +1102,7 @@ if __name__ == '__main__':
     print(str(tabla_curenta))
 
     # creare stare initiala
-    ADANCIME_MAX = int(dificultate) - 1
+    ADANCIME_MAX = int(dificultate)
     print("ADANCIME MAXIMA:", ADANCIME_MAX)
     stare_curenta = Stare(tabla_curenta, 'R', ADANCIME_MAX)
     print(tip_joc)
