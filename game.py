@@ -284,96 +284,59 @@ class Joc:
         return bestLen ** 2
 
     # imi returneaza in cate mutari castig in mod optim
-    def cate_mutari(self, jucator):
-        if jucator == 'B':
-            # stanga dreapta
-            dp = [float("inf")] * (self.NR_LINII * self.NR_COLOANE + 1)
-            # initial, pentru prima coloana
-            for lin in range(self.NR_LINII):
-                col = 0
-                poz = self.obtine_pozitie(lin, col)
-                if self.matr[poz] == 'B':
-                    dp[poz] = 0
-                elif self.matr[poz] == 'R':
-                    dp[poz] = float("inf")
-                else:
-                    dp[poz] = 1
+    def suma_lungimi(self, jucator):
+        dp = [0] * (self.NR_LINII * self.NR_COLOANE + 1)
 
-            #calculez dinamica pentru restul de coloane
-            for col in range(1, self.NR_COLOANE):
-                lin = 0
-                poz = self.obtine_pozitie(lin, col)
-                if self.matr[poz] == 'R':
-                    dp[poz] = float('inf')
-                else:
-                    dp[poz] = min(dp[self.obtine_pozitie(lin, col - 1)], dp[self.obtine_pozitie(lin + 1, col - 1)])
-                    if self.matr[poz] != 'B':
-                        dp[poz] += 1
-                for lin in range(1, self.NR_LINII - 1):
-                    poz = self.obtine_pozitie(lin, col)
-                    if self.matr[poz] == 'R':
-                        dp[poz] = float('inf')
-                    else:
-                        dp[poz] = min(dp[self.obtine_pozitie(lin - 1, col)], dp[self.obtine_pozitie(lin, col - 1)],
-                                      dp[self.obtine_pozitie(lin + 1, col)])
-                        if self.matr[poz] != 'B':
-                            dp[poz] += 1
-                lin = self.NR_LINII - 1
-                poz = self.obtine_pozitie(lin, col)
-                #calculez dinamica pentru coloanele din dreapta
-                if self.matr[poz] == 'R':
-                    dp[poz] = float('inf')
-                else:
-                    dp[poz] = min(dp[self.obtine_pozitie(lin - 1, col)], dp[self.obtine_pozitie(lin, col - 1)])
-            ans = float('inf')
-            for lin in range(self.NR_LINII):
-                col = self.NR_COLOANE - 1
-                ans = min(ans, dp[self.obtine_pozitie(lin, col)])
-            if ans == float('inf'):
-                ans = 1000000
-            elif ans == float('-inf'):
-                ans = -10000
-            return ans
-        # pentru Red
-        else:
-            #fac aceleasi lucruri in mod analog
-            dp = [float("inf")] * (self.NR_LINII * self.NR_COLOANE + 1)
+        dx = [-1, -1, 0, 0, 1, 1]
+        dy = [0, 1, 1, -1, 0, -1]
+
+        # linia maxima la care ajunge "insula"
+        maxLin = -1
+        maxCol = -1
+        # linia minima la care ajunge insula
+        minLin = self.NR_LINII + 1
+        minCol = self.NR_COLOANE + 1
+        # rezultatul returnat de functie
+
+        bestLen = -1
+
+        for lin in range(self.NR_LINII):
             for col in range(self.NR_COLOANE):
-                lin = 0
                 poz = self.obtine_pozitie(lin, col)
-                if self.matr[poz] == 'R':
-                    dp[poz] = 0
-                elif self.matr[poz] == 'B':
-                    dp[poz] = float('inf')
-                else:
+                # daca am o "insula" neexplorata, o vizitez, facand dfs
+                if dp[poz] == 0 and self.matr[poz] == jucator:
+                    # linia maxima la care ajunge "insula"
+                    maxLin = -1
+                    # linia minima la care ajunge insula
+                    minLin = self.NR_LINII + 1
                     dp[poz] = 1
-            for lin in range(1, self.NR_LINII):
-                for col in range(self.NR_COLOANE - 1):
-                    poz = self.obtine_pozitie(lin, col)
-                    if self.matr[poz] == 'B':
-                        dp[poz] = float('inf')
+                    coada = []
+                    coada.append(poz)
+                    while len(coada) > 0:
+                        poz = coada[0]
+                        coada.pop(0)
+                        lin = poz // self.NR_COLOANE
+                        col = poz % self.NR_COLOANE
+
+                        # recalculez maximele
+                        maxLin = max(lin, maxLin)
+                        minLin = min(lin, minLin)
+                        maxCol = max(col, maxCol)
+                        minCol = min(col, minCol)
+
+                        for i in range(6):
+                            newLin = lin + dx[i]
+                            newCol = col + dy[i]
+                            newPoz = self.obtine_pozitie(newLin, newCol)
+                            if newPoz is not None and self.matr[newPoz] == jucator and dp[newPoz] == 0:
+                                coada.append(newPoz)
+                                dp[newPoz] = 1
+                    if jucator == 'R':
+                        bestLen = bestLen + (maxLin - minLin) ** 2
                     else:
-                        dp[poz] = min(dp[self.obtine_pozitie(lin - 1, col)], dp[self.obtine_pozitie(lin, col + 1)])
-                        if self.matr[poz] != 'R':
-                            dp[poz] += 1
-                col = self.NR_COLOANE - 1
-                poz = self.obtine_pozitie(lin, col)
-                if self.matr[poz] == 'B':
-                    dp[poz] = float('inf')
-                else:
-                    dp[poz] = dp[self.obtine_pozitie(lin - 1, col)]
-                    if self.matr[poz] != 'R':
-                        dp[poz] += 1
-            ans = float('inf')
-            for col in range(self.NR_COLOANE):
-                lin = self.NR_LINII - 1
-                poz = self.obtine_pozitie(lin, col)
-                ans = min(ans, dp[poz])
-            if ans == float('inf'):
-                ans = 1000000
-            elif ans == float('-inf'):
-                ans = -10000
-            return ans
+                        bestLen = bestLen + (maxCol - minCol) **2
+
+        return bestLen
 
 
     #functia din laborator, estimeaza scorul, insa este putin modificata
@@ -392,7 +355,8 @@ class Joc:
                 #primul tip de estimare
                 return (self.lungime_maxima(self.__class__.JMAX) -  self.lungime_maxima(self.__class__.JMIN))
             else:
-                return -(self.cate_mutari(self.__class__.JMAX) - self.cate_mutari(self.__class__.JMIN))
+                #al doilea tip de estimare
+                return (self.suma_lungimi(self.__class__.JMAX) - self.suma_lungimi(self.__class__.JMIN))
 
 
     def sirAfisare(self):
