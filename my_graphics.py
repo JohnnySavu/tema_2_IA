@@ -5,6 +5,7 @@ import sys
 
 ADANCIME_MAX = 2
 TIP_ESTIMARE = 1
+noduri_generate = 0
 
 class Joc:
     """
@@ -340,7 +341,8 @@ class Joc:
 
 
 
-    def estimeaza_scor(self, adancime, tip = 1):
+    def estimeaza_scor(self, adancime):
+        global TIP_ESTIMARE
         t_final = self.final()
         # if (adancime==0):
         if t_final == self.__class__.JMAX:  # self.__class__ referinta catre clasa instantei
@@ -350,7 +352,7 @@ class Joc:
         elif t_final == 'remiza':
             return 0
         else:
-            if tip == 1:
+            if TIP_ESTIMARE == 1:
                 #primul tip de estimare
                 return (self.cate_drumuri(self.__class__.JMAX) - self.cate_drumuri(self.__class__.JMIN))
             else:
@@ -573,6 +575,78 @@ def deseneaza_alegeri(display, tabla_curenta):
         pygame.display.update()
 
 
+def min_max(stare):
+    global noduri_generate
+    noduri_generate += 1
+    if stare.adancime == 0 or stare.tabla_joc.final():
+        stare.scor = stare.tabla_joc.estimeaza_scor(stare.adancime)
+        return stare
+
+    # calculez toate mutarile posibile din starea curenta
+    stare.mutari_posibile = stare.mutari()
+
+    # aplic algoritmul minimax pe toate mutarile posibile (calculand astfel subarborii lor)
+    mutari_scor = [min_max(mutare) for mutare in stare.mutari_posibile]
+
+    if stare.j_curent == Joc.JMAX:
+        # daca jucatorul e JMAX aleg starea-fiica cu scorul maxim
+        stare.stare_aleasa = max(mutari_scor, key=lambda x: x.scor)
+    else:
+        # daca jucatorul e JMIN aleg starea-fiica cu scorul minim
+        stare.stare_aleasa = min(mutari_scor, key=lambda x: x.scor)
+    stare.scor = stare.stare_aleasa.scor
+    return stare
+
+
+def alpha_beta(alpha, beta, stare):
+    global noduri_generate
+    noduri_generate += 1
+
+    if stare.adancime == 0 or stare.tabla_joc.final():
+        stare.scor = stare.tabla_joc.estimeaza_scor(stare.adancime)
+        return stare
+
+    if alpha > beta:
+        return stare  # este intr-un interval invalid deci nu o mai procesez
+
+    stare.mutari_posibile = stare.mutari()
+
+    if stare.j_curent == Joc.JMAX:
+        scor_curent = float('-inf')
+
+        for mutare in stare.mutari_posibile:
+            # calculeaza scorul
+            stare_noua = alpha_beta(alpha, beta, mutare)
+
+            if (scor_curent < stare_noua.scor):
+                stare.stare_aleasa = stare_noua
+                scor_curent = stare_noua.scor
+            if (alpha < stare_noua.scor):
+                alpha = stare_noua.scor
+                if alpha >= beta:
+                    break
+
+    elif stare.j_curent == Joc.JMIN:
+        scor_curent = float('inf')
+
+        for mutare in stare.mutari_posibile:
+
+            stare_noua = alpha_beta(alpha, beta, mutare)
+
+            if (scor_curent > stare_noua.scor):
+                stare.stare_aleasa = stare_noua
+                scor_curent = stare_noua.scor
+
+            if (beta > stare_noua.scor):
+                beta = stare_noua.scor
+                if alpha >= beta:
+                    break
+    stare.scor = stare.stare_aleasa.scor
+
+    return stare
+
+
+
 
 def afis_daca_final(stare_curenta):
     final = stare_curenta.tabla_joc.final()
@@ -588,9 +662,40 @@ def afis_daca_final(stare_curenta):
 
 
 
+def afiseaza_statistici(timp_joc = None, timpi_jucatori = None, noduri_generate = None):
+    #afisam statisticile + tabla in configuratia finala
+    if timp_joc:
+        print("Timpul total de joc: ", timp_joc)
+
+    #to do in continuare
+
+    while True:
+        exit_button.deseneaza()
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                # iesim din program
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.MOUSEMOTION:
+                # daca s-a terminat jocul, afisam tabla finala fara a mai face modificari
+                stare_curenta.tabla_joc.deseneaza_final()
+
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                # vedem daca s a dat click pe o celula
+                pos = pygame.mouse.get_pos()  # coordonatele cursorului la momentul clickului
+                if exit_button.selecteazaDupacoord(pos):
+                    print("exiting")
+                    pygame.quit()
+                    sys.exit()
+
+
+
 def pvp():
-    hasWon = False
+    #timpul de inceput al jocului
+    timp_joc = time.time()
+
     timpi_jucatori = dict()
+    #pentru a evalua la final timpii de joc
     timpi_jucatori[Joc.JMIN] = []
     timpi_jucatori[Joc.JMAX] = []
 
@@ -607,20 +712,16 @@ def pvp():
                     sys.exit()
                 if event.type == pygame.MOUSEMOTION:
                     #daca s-a terminat jocul, afisam tabla finala fara a mai face modificari
-                    if hasWon:
-                        stare_curenta.tabla_joc.deseneaza_final()
-                        continue
                     pos = pygame.mouse.get_pos()  # coordonatele cursorului
 
                     for np in range(len(Joc.celuleGrid)):
+                        #vedem daca s-a dat hover pe o celula de joc
                         if Joc.celuleGrid[np].collidepoint(pos):
                             stare_curenta.tabla_joc.deseneaza_grid(coloana_marcaj=np % Joc.NR_COLOANE, linie_marcaj = np // Joc.NR_COLOANE)
                             break
 
-                    #desenam si butonul de exit game
-
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-
+                    #vedem daca s a dat click pe o celula
                     pos = pygame.mouse.get_pos()  # coordonatele cursorului la momentul clickului
                     if exit_button.selecteazaDupacoord(pos):
                         print("exiting")
@@ -649,6 +750,8 @@ def pvp():
                                     #pygame.quit()
                                     stare_curenta.tabla_joc.deseneaza_final()
                                     hasWon = True
+                                    timp_joc = time.time() -  timp_joc
+                                    afiseaza_statistici(timp_joc = timp_joc, timpi_jucatori = timpi_jucatori)
                                     break
                                 timpi_jucatori[stare_curenta.j_curent][-1] = time.time() - timpi_jucatori[stare_curenta.j_curent][-1]
                                 print("Timpul de gandire pentru jucatorul 1 este:", timpi_jucatori[stare_curenta.j_curent][-1])
@@ -664,11 +767,6 @@ def pvp():
                     pygame.quit()
                     sys.exit()
                 if event.type == pygame.MOUSEMOTION:
-
-                    if hasWon:
-                        stare_curenta.tabla_joc.deseneaza_final()
-                        continue
-
                     pos = pygame.mouse.get_pos()  # coordonatele cursorului
                     for np in range(len(Joc.celuleGrid)):
                         if Joc.celuleGrid[np].collidepoint(pos):
@@ -706,7 +804,8 @@ def pvp():
                                 if (afis_daca_final(stare_curenta)):
                                     stare_curenta.tabla_joc.deseneaza_final()
                                     print(stare_curenta.tabla_joc.drum_castigator)
-                                    hasWon = True
+                                    timp_joc = time.time() -  timp_joc
+                                    afiseaza_statistici(timp_joc = timp_joc, timpi_jucatori = timpi_jucatori)
                                     break
 
                                 timpi_jucatori[stare_curenta.j_curent][-1] = time.time() - \
@@ -718,6 +817,197 @@ def pvp():
 
                                 timpi_jucatori[stare_curenta.j_curent].append(time.time())
 
+
+
+
+def pvai():
+    global tip_algoritm
+    global noduri_generate
+    #timpul de inceput al jocului
+    timp_joc = time.time()
+
+    lista_noduri_generate = dict()
+    lista_noduri_generate[Joc.JMAX] = []
+
+    timpi_jucatori = dict()
+    #pentru a evalua la final timpii de joc
+    timpi_jucatori[Joc.JMIN] = []
+    timpi_jucatori[Joc.JMAX] = []
+
+    timpi_jucatori[stare_curenta.j_curent].append(time.time())
+
+    while True:
+        #afisam butonul de exit
+        exit_button.deseneaza()
+        if (stare_curenta.j_curent == Joc.JMIN):
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    # iesim din program
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.MOUSEMOTION:
+                    #daca s-a terminat jocul, afisam tabla finala fara a mai face modificari
+                    pos = pygame.mouse.get_pos()  # coordonatele cursorului
+
+                    for np in range(len(Joc.celuleGrid)):
+                        #vedem daca s-a dat hover pe o celula de joc
+                        if Joc.celuleGrid[np].collidepoint(pos):
+                            stare_curenta.tabla_joc.deseneaza_grid(coloana_marcaj=np % Joc.NR_COLOANE, linie_marcaj = np // Joc.NR_COLOANE)
+                            break
+
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    #vedem daca s a dat click pe o celula
+                    pos = pygame.mouse.get_pos()  # coordonatele cursorului la momentul clickului
+                    if exit_button.selecteazaDupacoord(pos):
+                        print("exiting")
+                        pygame.quit()
+                        sys.exit()
+
+                    for np in range(len(Joc.celuleGrid)):
+
+                        if Joc.celuleGrid[np].collidepoint(pos):
+                            linie = np // Joc.NR_COLOANE
+                            coloana = np % Joc.NR_COLOANE
+                            ###############################
+
+                            if stare_curenta.tabla_joc.matr[np]== Joc.GOL:
+                                stare_curenta.tabla_joc.matr[np] = Joc.JMIN
+                                niv = 0
+
+                                # afisarea starii jocului in urma mutarii utilizatorului
+                                print("\nTabla dupa mutarea jucatorului")
+                                print(str(stare_curenta))
+
+                                stare_curenta.tabla_joc.deseneaza_grid(coloana_marcaj=coloana, linie_marcaj=linie)
+                                # testez daca jocul a ajuns intr-o stare finala
+                                # si afisez un mesaj corespunzator in caz ca da
+                                if (afis_daca_final(stare_curenta)):
+                                    #pygame.quit()
+                                    stare_curenta.tabla_joc.deseneaza_final()
+                                    hasWon = True
+                                    timp_joc = time.time() -  timp_joc
+                                    afiseaza_statistici(timp_joc = timp_joc, timpi_jucatori = timpi_jucatori, noduri_generate=lista_noduri_generate)
+                                    break
+                                timpi_jucatori[stare_curenta.j_curent][-1] = time.time() - timpi_jucatori[stare_curenta.j_curent][-1]
+                                print("Timpul de gandire pentru jucatorul 1 este:", timpi_jucatori[stare_curenta.j_curent][-1])
+                                # S-a realizat o mutare. Schimb jucatorul cu cel opus
+                                stare_curenta.j_curent = Joc.jucator_opus(stare_curenta.j_curent)
+
+                                timpi_jucatori[stare_curenta.j_curent].append(time.time())
+        else:  # jucatorul e JMAX (calculatorul)
+            # Mutare calculator
+
+            # preiau timpul in milisecunde de dinainte de mutare
+            t_inainte = int(round(time.time() * 1000))
+            noduri_generate = 0
+            if tip_algoritm == 'minimax':
+                stare_actualizata = min_max(stare_curenta)
+            else:  # tip_algoritm=="alphabeta"
+                stare_actualizata = alpha_beta(-1000, 1000, stare_curenta)
+            stare_curenta.tabla_joc = stare_actualizata.stare_aleasa.tabla_joc
+
+            print("Tabla dupa mutarea calculatorului\n" + str(stare_curenta))
+
+            # preiau timpul in milisecunde de dupa mutare
+            t_dupa = int(round(time.time() * 1000))
+            timpi_jucatori[stare_curenta.j_curent][-1] = t_dupa - t_inainte
+
+            print("Calculatorul a \"gandit\" timp de " + str(t_dupa - t_inainte) + " milisecunde.")
+
+            lista_noduri_generate[Joc.JMAX].append(noduri_generate)
+            print("NODURI GENERATE: ", noduri_generate)
+            stare_curenta.tabla_joc.deseneaza_grid()
+            if (afis_daca_final(stare_curenta)):
+                afiseaza_statistici(timp_joc=timp_joc, timpi_jucatori=timpi_jucatori, noduri_generate=lista_noduri_generate)
+                break
+
+            # S-a realizat o mutare. Schimb jucatorul cu cel opus
+            stare_curenta.j_curent = Joc.jucator_opus(stare_curenta.j_curent)
+            timpi_jucatori[stare_curenta.j_curent].append(time.time())
+
+
+def aivai():
+    global tip_algoritm
+    global noduri_generate
+    # timpul de inceput al jocului
+    timp_joc = time.time()
+
+    lista_noduri_generate = dict()
+    lista_noduri_generate[Joc.JMAX] = []
+    lista_noduri_generate[Joc.JMIN] = []
+
+    timpi_jucatori = dict()
+    # pentru a evalua la final timpii de joc
+    timpi_jucatori[Joc.JMIN] = []
+    timpi_jucatori[Joc.JMAX] = []
+
+    timpi_jucatori[stare_curenta.j_curent].append(time.time())
+
+    while True:
+        # afisam butonul de exit
+        exit_button.deseneaza()
+        if (stare_curenta.j_curent == Joc.JMIN):
+            # Mutare calculator
+
+            # preiau timpul in milisecunde de dinainte de mutare
+            t_inainte = int(round(time.time() * 1000))
+            noduri_generate = 0
+            if tip_algoritm == 'minimax':
+                stare_actualizata = min_max(stare_curenta)
+            else:  # tip_algoritm=="alphabeta"
+                stare_actualizata = alpha_beta(-1000, 1000, stare_curenta)
+            stare_curenta.tabla_joc = stare_actualizata.stare_aleasa.tabla_joc
+
+            print("Tabla dupa mutarea calculatorului 1\n" + str(stare_curenta))
+
+            # preiau timpul in milisecunde de dupa mutare
+            t_dupa = int(round(time.time() * 1000))
+            timpi_jucatori[stare_curenta.j_curent][-1] = t_dupa - t_inainte
+
+            print("Calculatorul a \"gandit\" timp de " + str(t_dupa - t_inainte) + " milisecunde.")
+
+            lista_noduri_generate[stare_curenta.j_curent].append(noduri_generate)
+            print("NODURI GENERATE: ", noduri_generate)
+            stare_curenta.tabla_joc.deseneaza_grid()
+            if (afis_daca_final(stare_curenta)):
+                afiseaza_statistici(timp_joc=timp_joc, timpi_jucatori=timpi_jucatori,
+                                    noduri_generate=lista_noduri_generate)
+                break
+
+            # S-a realizat o mutare. Schimb jucatorul cu cel opus
+            stare_curenta.j_curent = Joc.jucator_opus(stare_curenta.j_curent)
+            timpi_jucatori[stare_curenta.j_curent].append(time.time())
+        else:  # jucatorul e JMAX (calculatorul)
+            # Mutare calculator
+
+            # preiau timpul in milisecunde de dinainte de mutare
+            t_inainte = int(round(time.time() * 1000))
+            noduri_generate = 0
+            if tip_algoritm == 'minimax':
+                stare_actualizata = min_max(stare_curenta)
+            else:  # tip_algoritm=="alphabeta"
+                stare_actualizata = alpha_beta(-1000, 1000, stare_curenta)
+            stare_curenta.tabla_joc = stare_actualizata.stare_aleasa.tabla_joc
+
+            print("Tabla dupa mutarea calculatorului\n" + str(stare_curenta))
+
+            # preiau timpul in milisecunde de dupa mutare
+            t_dupa = int(round(time.time() * 1000))
+            timpi_jucatori[stare_curenta.j_curent][-1] = t_dupa - t_inainte
+
+            print("Calculatorul a \"gandit\" timp de " + str(t_dupa - t_inainte) + " milisecunde.")
+
+            lista_noduri_generate[Joc.JMAX].append(noduri_generate)
+            print("NODURI GENERATE: ", noduri_generate)
+            stare_curenta.tabla_joc.deseneaza_grid()
+            if (afis_daca_final(stare_curenta)):
+                afiseaza_statistici(timp_joc=timp_joc, timpi_jucatori=timpi_jucatori,
+                                    noduri_generate=lista_noduri_generate)
+                break
+
+            # S-a realizat o mutare. Schimb jucatorul cu cel opus
+            stare_curenta.j_curent = Joc.jucator_opus(stare_curenta.j_curent)
+            timpi_jucatori[stare_curenta.j_curent].append(time.time())
 
 
 if __name__ == '__main__':
@@ -747,9 +1037,15 @@ if __name__ == '__main__':
     print(str(tabla_curenta))
 
     # creare stare initiala
+    ADANCIME_MAX = int(dificultate) - 1
+    print("ADANCIME MAXIMA:", ADANCIME_MAX)
     stare_curenta = Stare(tabla_curenta, 'R', ADANCIME_MAX)
     print(tip_joc)
 
     if tip_joc == 'PvP':
         pvp()
+    elif tip_joc == 'PvAI':
+        pvai()
+    else:
+        aivai()
 
