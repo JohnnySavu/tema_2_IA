@@ -1,3 +1,6 @@
+#TODO : CAND DAI EXIT SA-TI AFISEZE STATISTICI
+#SA AFISEZE MIN/MAX PENTRU ALFA BETA / MINMAX LA FEICARE MUTARE
+
 import time
 import copy
 import pygame
@@ -12,6 +15,7 @@ class Joc:
     """
     Clasa care defineste jocul. Se va schimba de la un joc la altul.
     """
+    #numarul de linii si de coloane pentru tabla de joc
     NR_COLOANE = 5
     NR_LINII = 5
     JMIN = None
@@ -64,6 +68,8 @@ class Joc:
 
         pygame.display.update()
 
+    #deseaneaza jocul in starea finala in care unul dintre jucatori a castigat.
+    #in acelasi timp coloreaza cu mov traseul cu care unul din jucatori a castigat
     def deseneaza_final(self):
 
         for ind in range(self.__class__.NR_COLOANE * self.__class__.NR_LINII):
@@ -86,6 +92,7 @@ class Joc:
 
 
     #ca sa convertesc de la x y la coordonata liniara
+    #imi returneaza pozitia din lista sau None in caz nu este valida
     @classmethod
     def obtine_pozitie(cls, lin, col):
         if lin < 0 or lin >= cls.NR_LINII or col < 0 or col >= cls.NR_COLOANE:
@@ -96,6 +103,8 @@ class Joc:
     def jucator_opus(cls, jucator):
         return cls.JMAX if jucator == cls.JMIN else cls.JMIN
 
+    #trebuei sa vedem daca avem un pod de la stanga la dreapta pt B sau din sus in jos pentru R
+    #realizam acestu lucru facand doua parcurgeri bfs
     def final(self):
         #verificam mai intai pentru rosu
         #rosu e de sus in jos
@@ -216,7 +225,7 @@ class Joc:
         # inseamna ca avem remiza
         return "remiza"
 
-
+    #returneaza toate mutarile care se pot obtine dintr-o stare
     def mutari(self, jucator):  # jucator = simbolul jucatorului care muta
         l_mutari = []
         for i in range(len(self.matr)):
@@ -227,7 +236,8 @@ class Joc:
         return l_mutari
 
 
-    #imi returneaza care este cea mai lunga inaltime / latime a unei 'insule' data de culorile unui jucator
+    #imi returneaza care este cea mai lunga inaltime / latime la patrat a unei 'insule' data de culorile unui jucator
+    #ideea este de a incerca sa-ti maximizezi cea mai inalta/lata secventa de culori in timp ce minimizezi secventa adversarului
     def lungime_maxima(self, jucator):
 
         dp = [0] * (self.NR_LINII * self.NR_COLOANE + 1)
@@ -248,7 +258,7 @@ class Joc:
         for lin in range(self.NR_LINII):
             for col in range(self.NR_COLOANE):
                 poz = self.obtine_pozitie(lin, col)
-                #daca am o "insula" neexplorata, o vizitez, facand dfs
+                #daca am o "insula" neexplorata, o vizitez, facand bfs
                 if dp[poz] == 0 and self.matr[poz] == jucator:
                     # linia maxima la care ajunge "insula"
                     maxLin = -1
@@ -273,6 +283,7 @@ class Joc:
                             newLin = lin + dx[i]
                             newCol = col + dy[i]
                             newPoz = self.obtine_pozitie(newLin, newCol)
+                            #vad daca trebuie sa
                             if newPoz is not None and self.matr[newPoz] == jucator and dp[newPoz] == 0:
                                 coada.append(newPoz)
                                 dp[newPoz] = 1
@@ -283,7 +294,8 @@ class Joc:
 
         return bestLen ** 2
 
-    # imi returneaza in cate mutari castig in mod optim
+    #o optimizare a metodei de mai sus, tine cont de inaltimile/latimile la patrat a "insulelor" determinate de jucatori
+    #returneaza suma patratelor acestor insule
     def suma_lungimi(self, jucator):
         dp = [0] * (self.NR_LINII * self.NR_COLOANE + 1)
 
@@ -352,10 +364,11 @@ class Joc:
             return 0
         else:
             if TIP_ESTIMARE == 1:
-                #primul tip de estimare
+                #primul tip de estimare, incearca sa maximizeze diferenta dintre cea mai lunga secventaa a calculatorilui
+                #si cea mai lunga secventa a jucatorului
                 return (self.lungime_maxima(self.__class__.JMAX) -  self.lungime_maxima(self.__class__.JMIN))
             else:
-                #al doilea tip de estimare
+                #al doilea tip de estimare, incearca sa maximizeze diferenta dintre suma patratelor lungimilor secventelor
                 return (self.suma_lungimi(self.__class__.JMAX) - self.suma_lungimi(self.__class__.JMIN))
 
 
@@ -528,7 +541,7 @@ def deseneaza_alegeri(display, tabla_curenta):
             Buton(display=display, w=45, h=30, text="AIvAI", valoare="AIvAI")
         ],
         indiceSelectat= 1)
-    #butoanele pentru cerintele suplimentare
+    #butoanele pentru cerintele din meniu
     btn_dificultate = GrupButoane(
         top = 180,
         left = 30,
@@ -716,7 +729,7 @@ def afiseaza_statistici(timp_joc = None, timpi_jucatori = None, noduri_generate 
                     sys.exit()
 
 
-
+#daca modul de joc este player vs player, atunci voi procesa deatele in mod diferit
 def pvp():
     #timpul de inceput al jocului
     timp_joc = time.time()
@@ -786,7 +799,7 @@ def pvp():
                                 stare_curenta.j_curent = Joc.jucator_opus(stare_curenta.j_curent)
 
                                 timpi_jucatori[stare_curenta.j_curent].append(time.time())
-        else:
+        else: # aceleasi lucruri ca mai sus, dar pentru celalalt jucator
             for event in pygame.event.get():
                 exit_button.deseneaza()
                 if event.type == pygame.QUIT:
@@ -846,8 +859,9 @@ def pvp():
 
 
 
-
+#procesez evenimentele pentru jocul unui jucator cu un AI
 def pvai():
+    #sunt globale doarece sunt setate la inceputul jocului
     global tip_algoritm
     global noduri_generate
     #timpul de inceput al jocului
@@ -930,7 +944,7 @@ def pvai():
             if tip_algoritm == 'minimax':
                 stare_actualizata = min_max(stare_curenta)
             else:  # tip_algoritm=="alphabeta"
-                stare_actualizata = alpha_beta(-1000, 1000, stare_curenta)
+                stare_actualizata = alpha_beta(-1000000, 1000000, stare_curenta)
             stare_curenta.tabla_joc = stare_actualizata.stare_aleasa.tabla_joc
 
             print("Tabla dupa mutarea calculatorului\n" + str(stare_curenta))
@@ -952,7 +966,7 @@ def pvai():
             stare_curenta.j_curent = Joc.jucator_opus(stare_curenta.j_curent)
             timpi_jucatori[stare_curenta.j_curent].append(time.time())
 
-
+# secventa de cod pentru calculator vs calculator
 def aivai():
     global tip_algoritm
     global noduri_generate
@@ -974,6 +988,7 @@ def aivai():
         # afisam butonul de exit
         exit_button.deseneaza()
         if (stare_curenta.j_curent == Joc.JMIN):
+            #deoarece un ai joaca cu un tip de estimare iar celalalt cu alt tip
             tip_algoritm = 1
             # Mutare calculator
 
@@ -1054,7 +1069,7 @@ if __name__ == '__main__':
     tabla_curenta = Joc()
 
 
-
+    #citesc valorile returnate de catre meniul de start
     Joc.JMIN, tip_algoritm, tip_joc, dificultate, tip_estimare = deseneaza_alegeri(ecran, tabla_curenta)
     TIP_ESTIMARE = int(tip_estimare)
 
@@ -1071,6 +1086,7 @@ if __name__ == '__main__':
     stare_curenta = Stare(tabla_curenta, 'R', ADANCIME_MAX)
     print(tip_joc)
 
+    #vad ce tip de joc
     if tip_joc == 'PvP':
         pvp()
     elif tip_joc == 'PvAI':
