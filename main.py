@@ -14,13 +14,24 @@ class Joc:
     """
     Clasa care defineste jocul. Se va schimba de la un joc la altul.
     """
-    NR_COLOANE = 3
+    NR_LINI = 5
+    NR_COLOANE = 5
     JMIN = None
     JMAX = None
     GOL = '#'
 
-    def __init__(self, tabla=None):  # Joc()
+    #obtinem pozitia de la lin si col la liniar
+    def get_poz(self, lin, col):
+        if lin < 0 or lin > self.NR_LINI and col < 0 and col > self.NR_COLOANE:
+            return -1
+        return lin * self.NR_COLOANE + col
+
+    #pozitii otravite este un vecotr de 2 tuplu. Reprezinta pe ce pozitii sunt ciocolatiile otracite
+    def __init__(self, tabla=None, pozitii_otravite = None):  # Joc()
         self.matr = tabla or [Joc.GOL] * self.NR_COLOANE ** 2
+        if pozitii_otravite is not None:
+            for (lin, col) in pozitii_otravite:
+                self.matr[self.get_poz(lin, col)] = 'O' # asa vom reprezinta poztiile otravite
 
     @classmethod
     def jucator_opus(cls, jucator):
@@ -51,6 +62,8 @@ class Joc:
 
     # TO DO 3,6
     def mutari(self, jucator):  # jucator = simbolul jucatorului care muta
+        #todo
+        # sa vad daca am cel putin o mutare valida
         l_mutari = []
         for i in range(len(self.matr)):
             if self.matr[i] == Joc.GOL:

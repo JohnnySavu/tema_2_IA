@@ -1,6 +1,3 @@
-#TODO : CAND DAI EXIT SA-TI AFISEZE STATISTICI
-#SA AFISEZE MIN/MAX PENTRU ALFA BETA / MINMAX LA FEICARE MUTARE
-
 import time
 import copy
 import pygame
@@ -724,7 +721,7 @@ def afiseaza_statistici(timp_joc = None, timpi_jucatori = None, noduri_generate 
                 # vedem daca s a dat click pe o celula
                 pos = pygame.mouse.get_pos()  # coordonatele cursorului la momentul clickului
                 if exit_button.selecteazaDupacoord(pos):
-                    print("exiting")
+                    print("exiting...")
                     pygame.quit()
                     sys.exit()
 
@@ -764,7 +761,7 @@ def pvp():
                     #vedem daca s a dat click pe o celula
                     pos = pygame.mouse.get_pos()  # coordonatele cursorului la momentul clickului
                     if exit_button.selecteazaDupacoord(pos):
-                        print("exiting")
+                        afiseaza_statistici(timp_joc = timp_joc, timpi_jucatori=timpi_jucatori)
                         pygame.quit()
                         sys.exit()
 
@@ -819,7 +816,7 @@ def pvp():
 
                     pos = pygame.mouse.get_pos()  # coordonatele cursorului la momentul clickului
                     if exit_button.selecteazaDupacoord(pos):
-                        print("exiting")
+                        afiseaza_statistici(timp_joc = timp_joc, timpi_jucatori=timpi_jucatori)
                         pygame.quit()
                         sys.exit()
 
@@ -900,7 +897,7 @@ def pvai():
                     #vedem daca s a dat click pe o celula
                     pos = pygame.mouse.get_pos()  # coordonatele cursorului la momentul clickului
                     if exit_button.selecteazaDupacoord(pos):
-                        print("exiting")
+                        afiseaza_statistici(timp_joc = timp_joc, timpi_jucatori=timpi_jucatori, noduri_generate=noduri_generate)
                         pygame.quit()
                         sys.exit()
 
@@ -943,8 +940,10 @@ def pvai():
             noduri_generate = 0
             if tip_algoritm == 'minimax':
                 stare_actualizata = min_max(stare_curenta)
+                print("Scor: ", stare_actualizata.scor)
             else:  # tip_algoritm=="alphabeta"
-                stare_actualizata = alpha_beta(-1000000, 1000000, stare_curenta)
+                stare_actualizata = alpha_beta(-100000000, 100000000, stare_curenta)
+                print("Scor: ", stare_actualizata.scor)
             stare_curenta.tabla_joc = stare_actualizata.stare_aleasa.tabla_joc
 
             print("Tabla dupa mutarea calculatorului\n" + str(stare_curenta))
